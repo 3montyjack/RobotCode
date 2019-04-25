@@ -239,7 +239,14 @@ task grabbingBallTask() {
 		}
 
 		if (pickingUp) {
-
+			grabbing_claw_command = CLAWTODROP;
+			if (getMotorEncoder(ClawVertical) > CLAWDROPE) {
+				grabbing_claw_command = CLAWOPEN;
+				sleep(timeTillClawMoves);
+				grabbing_claw_command = CLAWTOHOLD;
+				pickingUp = false;
+				searching = false;
+			}
 		}
 
 		releaseCPU();
