@@ -44,7 +44,8 @@ enum ClawControlValues {
 	CLAWDOWNM = 15,
 	CLAWUPM = 75,
 	CLAWCLOSEM = 30,
-	CLAWOPENM = -30
+	CLAWOPENM = -30,
+	CLAWHOLDM = 5
 }
 
 enum TimingMotors {
@@ -141,19 +142,30 @@ void Move (int operation) {
 void controlClaw(int operation) {
 
 	switch(operation) {
-		CLAWCLOSE,
-		CLAWOPEN,
-		CLAWHOLD,
-		CLAWTOHOLD,
-		CLAWTODROP,
-		CLAWTOGROUND
-		case GRABBALL:
-			setMotor(ClawGrab , CLAWCLOSEM);
+		case CLAWCLOSE:
+			setMotor(ClawGrab, CLAWCLOSEM);
 			break;
-
-
-
-
+		case CLAWOPEN:
+			setMotor(ClawGrab, CLAWOPENM);
+			break;
+		case CLAWHOLD:
+			setMotor(ClawVertical, CLAWHOLDM);
+			break;
+		case CLAWTODROP:
+			setMotor(ClawVertical, CLAWHOLDM);
+			break;
+		case CLAWTOGROUND:
+			setMotor(ClawVertical, CLAWHOLDM);
+			break;
+		case CLAWTOHOLD:
+			if (getMotorEncoder(ClawVertical) > CLAWHOLDE) {
+				setMotor(ClawVertical, CLAWDOWNM);
+			} else if (getMotorEncoder(ClawVertical) < CLAWHOLDE) {
+				setMotor(ClawVertical, CLAWUPM);
+			} else {
+				setMotor(ClawVertical, CLAWHOLDM);
+			}
+			break;
 	}
 
 }
