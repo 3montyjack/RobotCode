@@ -183,12 +183,33 @@ task searchForBallTask() {
 		if ((bottomDistanceSensor + deltaDistanceSensors) < (topDistanceSensor - tolleranceBall)) {
 			foundBall = true;
 			//TODO : make these vars turningMax turningDistance
-		} else if (turningDistance < turningMax) {
-			//Find wall potential
-			//Find corner maybe?
+		} else {
+			// sets the initial position of the robot
+			//motorEncoderValue =
+
+			// spinning to find ball
+			case RIGHT_TURN;
 
 		}
 
+		if (motorEncoderValue == fullRotation) {
+			// stop and move forward
+		}
+
+		// moves to a new location
+		case FORWARD;
+
+		// find wall potential
+		if (topDistanceSensor < 30) {
+			if (lastTurn == true) {
+				case RIGHT_TURN;
+
+			} else {
+				case LEFT_TURN;
+			}
+		} else {
+			case FORWARD;
+		}
 
 		releaseCPU();
 	}
