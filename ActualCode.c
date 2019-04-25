@@ -52,6 +52,10 @@ enum SensorTolerances {
 	tolleranceBall = 0
 }
 
+enum SensorThreshold {
+	pickupThreshold = 20
+}
+
 //Booleans to see what state the robot is in
 
 bool searching = false;
@@ -138,22 +142,6 @@ void controlClaw(int operation) {
 
 }
 
-//This is the thread for the bumper, if the bumper is hit then the robot will stop,
-//backup and move to the left.
-task search() {
-	int frontBumperStatus;
-	while(true){
-		frontBumperStatus = getTouchValue(frontBumperSensor); //Equal to 0 when bumper is hit: active bumper
-		if(frontBumperStatus == 0) {
-			front_bumper_active = true;
-			front_bumper_command = HARD_LEFT;  //Arbitrater will read this and execute command and then wait
-		}
-		else {
-			front_bumper_active = false;
-		}
-		releaseCPU();
-	}
-}
 
 // This is the thread that controls the right side facing sonar sensor for a right hand wall walk. Arc toward the wall
 // when too far away. Arc away when too close, and stay straight otherwise.
@@ -209,8 +197,26 @@ task searchForBallTask() {
 		} else if (turningDistance < turningMax) {
 			//Find wall potential
 			//Find corner maybe?
-			
+
 		}
+
+
+		releaseCPU();
+	}
+}
+
+task grabbingBallTask() {
+	int topDistanceSensor;
+	int bottomDistanceSensor;
+	while (true) {
+		//TODO: Fix the sensor ports/ THere is a better command for finding the value anyways
+		topDistanceSensor = SensorValue[leftDownSensor];
+		bottomDistanceSensor = SensorValue[leftDownSensor];
+
+		if (bottomDistanceSensor <= pickupThreshold) {
+
+		}
+
 
 
 		releaseCPU();
@@ -230,23 +236,10 @@ task main() {
 
 	startTask(searchForBallTask);
 	startTask(grabbingBallTask);
-	startTask(depositingBallTask)
+	startTask(depositingBallTask);
 
 	while(true) {
 		motorCommands = FORWARD;
-		if (right_distance_active) {
-			motorCommands = right_distance_command;
-		}
-
-		if (front_bumper_active) {
-			motorCommands = front_bumper_command;
-		}
-
-		if (top_reflect_active) {
-			motorCommands = top_reflect_command;
-		}
-
-
 
 		if (searching) {
 			motorCommands = search_motor_command;
