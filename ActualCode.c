@@ -22,7 +22,7 @@ enum Movement {
 
 /* Mnemonics for motor speed control */
 enum MotorValues {
-	FWD = -35,
+	FWD = 80,
 	SYNCH = 0,
 	ARCING = 10,
 	FORWARDTIMEUNIT = 600,
@@ -103,33 +103,33 @@ void Move (int operation) {
 		break;
 
 	case FORWARD:
-		setMotorSyncTime (leftMotor, rightMotor, SYNCH, FORWARDTIMEUNIT, FWD);
+		setMotorSyncTime (LeftMotor, RightMotor, SYNCH, FORWARDTIMEUNIT, FWD);
 		break;
 
 	case BACKWARD:
-		setMotorSyncTime (leftMotor, rightMotor, SYNCH, FORWARDTIMEUNIT, -FWD);
+		setMotorSyncTime (LeftMotor, RightMotor, SYNCH, FORWARDTIMEUNIT, -FWD);
 		break;
 
 	case LEFT_TURN:
-		setMotorSyncEncoder (leftMotor, rightMotor, 100, TURNCLICKCOUNT, FWD);
+		setMotorSyncEncoder (LeftMotor, RightMotor, 100, TURNCLICKCOUNT, FWD);
 		break;
 
 	case RIGHT_TURN:
-		setMotorSyncEncoder (leftMotor, rightMotor, -100, TURNCLICKCOUNT, FWD);
+		setMotorSyncEncoder (LeftMotor, RightMotor, -100, TURNCLICKCOUNT, FWD);
 		break;
 
 	case LEFT_ARC:
-		setMotorSyncTime (leftMotor, rightMotor, ARCING, FORWARDTIMEUNIT, FWD);
+		setMotorSyncTime (LeftMotor, RightMotor, ARCING, FORWARDTIMEUNIT, FWD);
 		break;
 
 	case RIGHT_ARC:
-		setMotorSyncTime (leftMotor, rightMotor, -ARCING, FORWARDTIMEUNIT, FWD);
+		setMotorSyncTime (LeftMotor, RightMotor, -ARCING, FORWARDTIMEUNIT, FWD);
 		break;
 
 	case HARD_LEFT:
-		setMotorSyncTime (leftMotor, rightMotor, SYNCH, FORWARDTIMEUNIT, -FWD);
+		setMotorSyncTime (LeftMotor, RightMotor, SYNCH, FORWARDTIMEUNIT, -FWD);
 		sleep(800);
-		setMotorSyncEncoder (leftMotor, rightMotor, 100, 90, FWD);
+		setMotorSyncEncoder (LeftMotor, RightMotor, 100, 90, FWD);
 		break;
 
 	default:
@@ -170,45 +170,6 @@ void controlClaw(int operation) {
 
 }
 
-
-// This is the thread that controls the right side facing sonar sensor for a right hand wall walk. Arc toward the wall
-// when too far away. Arc away when too close, and stay straight otherwise.
-task wall_follow() {
-	int rightSonarSensorValue;
-	while (true) {
-		rightSonarSensorValue = getUSDistance(rightSonarSensor);
-		right_distance_active = true;
-		right_distance_command = FORWARD;
-		if (rightSonarSensorValue > (DISTANCETHRESHOLD + DELTA)) {
-			right_distance_command = RIGHT_ARC;
-		}
-		if (rightSonarSensorValue > LOSTWALLDISTANCE) {
-			right_distance_command = RIGHT_TURN;
-		}
-		if (rightSonarSensorValue < (DISTANCETHRESHOLD - DELTA)) {
-			right_distance_command = LEFT_ARC;
-		}
-		releaseCPU();
-	}
-}
-
-
-// This is the thread that controls the top downward facing reflection sensor. As a cockroach, the robot behavior is to stop
-// when appropriate darkeness is sensed.
-task avoid_light() {
-	int topReflectStatus;
-	while (true) {
-		topReflectStatus = SensorValue[leftDownSensor];
-		top_reflect_active = false;
-		if (topReflectStatus > LIGHTTHRESHOLD) {
-			top_reflect_active = true;
-			top_reflect_command = STOP;
-		}
-		releaseCPU();
-	}
-}
-
-
 // This is the thread that controls the top downward facing reflection sensor. As a cockroach, the robot behavior is to stop
 // when appropriate darkeness is sensed.
 task searchForBallTask() {
@@ -238,40 +199,85 @@ task grabbingBallTask() {
 	int bottomDistanceSensor;
 	bool pickingUp = false;
 	while (true) {
-		//TODO: Fix the sensor ports/ THere is a better command for finding the value anyways
-		topDistanceSensor = SensorValue[leftDownSensor];
-		bottomDistanceSensor = SensorValue[leftDownSensor];
+		if (searching) {
+			//TODO: Fix the sensor ports/ THere is a better command for finding the value anyways
+			topDistanceSensor = SensorValue[leftDownSensor];
+			bottomDistanceSensor = SensorValue[leftDownSensor];
 
-		search_motor_command = FWD;
+			search_motor_command = FWD;
 
-		if (bottomDistanceSensor <= pickupThreshold) {
-			grabbing_claw_command = CLAWTOGROUND;
-			search_motor_command = STOP;
-		}
-		if (getMotorEncoder(ClawVertical) < tolleranceClawFloor) {
-			grabbing_claw_command = CLAWCLOSE;
-			search_motor_command = STOP;
-			pickingUp = true;
-			sleep(timeTillClawMoves);
-		}
-
-		if (pickingUp) {
-			grabbing_claw_command = CLAWTODROP;
-			if (getMotorEncoder(ClawVertical) > CLAWDROPE) {
-				grabbing_claw_command = CLAWOPEN;
+			if (bottomDistanceSensor <= pickupThreshold) {
+				grabbing_claw_command = CLAWTOGROUND;
 				search_motor_command = STOP;
-				sleep(timeTillClawMoves);
-				grabbing_claw_command = CLAWTOHOLD;
-				search_motor_command = FWD;
-				pickingUp = false;
-				searching = false;
-				depositingBall = true;
 			}
-		}
+			if (getMotorEncoder(ClawVertical) < tolleranceClawFloor) {
+				grabbing_claw_command = CLAWCLOSE;
+				search_motor_command = STOP;
+				pickingUp = true;
+				sleep(timeTillClawMoves);
+			}
 
-		releaseCPU();
+			if (pickingUp) {
+				grabbing_claw_command = CLAWTODROP;
+				if (getMotorEncoder(ClawVertical) > CLAWDROPE) {
+					grabbing_claw_command = CLAWOPEN;
+					search_motor_command = STOP;
+					sleep(timeTillClawMoves);
+					grabbing_claw_command = CLAWTOHOLD;
+					search_motor_command = FWD;
+					pickingUp = false;
+					searching = false;
+					depositingBall = true;
+				}
+			}
+
+			releaseCPU();
+		}
 	}
 }
+
+task grabbingBallTask() {
+	int topDistanceSensor;
+	int bottomDistanceSensor;
+	bool pickingUp = false;
+	while (true) {
+		if (searching) {
+			//TODO: Fix the sensor ports/ THere is a better command for finding the value anyways
+			topDistanceSensor = SensorValue[leftDownSensor];
+			bottomDistanceSensor = SensorValue[leftDownSensor];
+
+			search_motor_command = FWD;
+
+			if (bottomDistanceSensor <= pickupThreshold) {
+				grabbing_claw_command = CLAWTOGROUND;
+				search_motor_command = STOP;
+			}
+			if (getMotorEncoder(ClawVertical) < tolleranceClawFloor) {
+				grabbing_claw_command = CLAWCLOSE;
+				search_motor_command = STOP;
+				pickingUp = true;
+				sleep(timeTillClawMoves);
+			}
+
+			if (pickingUp) {
+				grabbing_claw_command = CLAWTODROP;
+				if (getMotorEncoder(ClawVertical) > CLAWDROPE) {
+					grabbing_claw_command = CLAWOPEN;
+					search_motor_command = STOP;
+					sleep(timeTillClawMoves);
+					grabbing_claw_command = CLAWTOHOLD;
+					search_motor_command = FWD;
+					pickingUp = false;
+					searching = false;
+					depositingBall = true;
+				}
+			}
+
+			releaseCPU();
+		}
+	}
+}
+
 
 
 

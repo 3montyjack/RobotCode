@@ -73,18 +73,18 @@ enum stateValue
 task letsFindBall() {
 	short sensorValWall = 0;
 	short sensorValBall = 0;
-	
+
 	sensorValWall = SensorValue(DistSensor);
 	sensorValBall - SensorValue(BallSensor);
-	
+
 	while(stateValue != ball) {
-		
+
 		// spin-searches for the ball
 		int speed = 20;
 		int maybeBall = 0;
 		bool spinning = true;
 		setMotorSync(RightMotor, LeftMotor, -75, speed);
-		
+
 		while (spinning == true) {
 			if (enableWallSensor == false && enableBallSensor == true) {
 				// slows down to check if ball is found
@@ -99,14 +99,14 @@ task letsFindBall() {
 			else if (WallSensor == true && BallSensor == false) {
 				// turns
 				setMotorSync(RightMotor, LeftMotor, -99, 20)
-				
+
 			}
 			else if (WallSensor = false && BallSensor = false) {
-				
+
 				wait1Msec(100);
 			}
 	  		else {
-				
+
 	  		}
 		}
 	releaseCPU();
@@ -114,7 +114,7 @@ task letsFindBall() {
 
 task obtainBall() {
 	short sensorValBall = 0;
-	
+
 	// this below needs worked on
 	stateValue
 	while(true) {
@@ -140,7 +140,7 @@ task main()
 	enableWallSensor = true;
 	enableBallSensor = true;
 	enableColorSensor = true;
-	
+
 	//begins subthread
 	while(true) {
 		stateValue = start;
@@ -152,7 +152,7 @@ task main()
 		}
 		if (stateValue == home) {
 			startTask(returnHome);
-		} 
+		}
 		false;
 	}
 	releaseCPU();
