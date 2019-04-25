@@ -27,7 +27,8 @@ enum MotorValues {
 	ARCING = 10,
 	FORWARDTIMEUNIT = 600,
 	ARCRATIO = 70,
-	TURNCLICKCOUNT = 175
+	TURNCLICKCOUNT = 175,
+	STOP = 0
 }
 
 enum ClawStates {
@@ -229,11 +230,15 @@ task grabbingBallTask() {
 		topDistanceSensor = SensorValue[leftDownSensor];
 		bottomDistanceSensor = SensorValue[leftDownSensor];
 
+		search_motor_command = FWD;
+
 		if (bottomDistanceSensor <= pickupThreshold) {
 			grabbing_claw_command = CLAWTOGROUND;
+			search_motor_command = STOP;
 		}
 		if (getMotorEncoder(ClawVertical) < tolleranceClawFloor) {
 			grabbing_claw_command = CLAWCLOSE;
+			search_motor_command = STOP;
 			pickingUp = true;
 			sleep(timeTillClawMoves);
 		}
@@ -242,10 +247,13 @@ task grabbingBallTask() {
 			grabbing_claw_command = CLAWTODROP;
 			if (getMotorEncoder(ClawVertical) > CLAWDROPE) {
 				grabbing_claw_command = CLAWOPEN;
+				search_motor_command = STOP;
 				sleep(timeTillClawMoves);
 				grabbing_claw_command = CLAWTOHOLD;
+				search_motor_command = FWD;
 				pickingUp = false;
 				searching = false;
+				depositingBall = true;
 			}
 		}
 
