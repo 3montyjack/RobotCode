@@ -60,6 +60,9 @@ int stateBallSensor = 0;
 bool enableColorSensor = false;
 bool stateColorSensor = false;
 
+// true = right, false = left
+bool lastTurn = true;
+
 enum stateValue
 {
 	start,
@@ -80,8 +83,7 @@ task letsFindBall() {
 		int speed = 20;
 		int maybeBall = 0;
 		bool spinning = true;
-		setMotor(LeftMotor, -99, speed);
-		setMotor(RightMotor, 99, speed);
+		setMotorSync(RightMotor, LeftMotor, -75, speed);
 		
 		while (spinning == true) {
 			if (enableWallSensor == false && enableBallSensor == true) {
@@ -95,7 +97,8 @@ task letsFindBall() {
 				wait1Msec(3);
 			}
 			else if (WallSensor == true && BallSensor == false) {
-				// backs up and turns
+				// turns
+				setMotorSync(RightMotor, LeftMotor, -99, 20)
 				
 			}
 			else if (WallSensor = false && BallSensor = false) {
@@ -151,5 +154,6 @@ task main()
 			startTask(returnHome);
 		} 
 		false;
+	}
 	releaseCPU();
 }
