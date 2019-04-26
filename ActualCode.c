@@ -195,8 +195,6 @@ task leverCommands() {
 // This is the thread that controls the top downward facing reflection sensor. As a cockroach, the robot behavior is to stop
 // when appropriate darkeness is sensed.
 
-/// WHAT THE ACTUAL FUCK IS THIS CODE
-/// WHAT LANGUAGE IS THIS
 task searchForBallTask() {
 	int topDistanceSensor;
 	int bottomDistanceSensor;
