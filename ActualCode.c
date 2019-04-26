@@ -10,14 +10,15 @@
 
 /* Mnemonics for motion control */ //copied from emailed example
 enum Movement {
-	HALT = 0,
-	FWD = 1,
-	BWD = 2,
-	LEFT_ARC = 3,
-	RIGHT_ARC = 4,
-	LEFT_TURN = 5,
-	RIGHT_TURN = 6,
-	HARD_LEFT = 7
+	HALT,
+	FWD,
+	BWD,
+	LEFT_ARC,
+	RIGHT_ARC,
+	LEFT_TURN,
+	RIGHT_TURN,
+	HARD_LEFT,
+	FORWARD_MOVE_SEARCH
 };
 
 /* Mnemonics for motor speed control */
@@ -30,6 +31,11 @@ enum MotorValues {
 	TURNCLICKCOUNT = 175,
 	STOPMOVEMENT = 0
 };
+
+enum TuringValues {
+	HARD_RIGHT_VALUE = 75,
+	FORWARD_VALUE = 0
+}
 
 enum ClawStates {
 	CLAWCLOSE,
@@ -64,7 +70,8 @@ enum SensorTolerances {
 };
 
 enum SensorThreshold {
-	pickupThreshold = 30
+	pickupThreshold = 30,
+	SENSOR_DIST_TOP_MAX = 170
 };
 
 int robot_lever_command;
@@ -90,12 +97,7 @@ bool searching = false;
 bool foundBall = false;
 bool depositingBall = false;
 
-//Initialize behavior flags
-
-
-
-
-
+//Debug global values
 
 int motorEncoder;
 
@@ -113,31 +115,18 @@ task moveCommand () {
 		case FWD:
 			setMotorSyncTime (LeftMotor, RightMotor, SYNCH, FORWARDTIMEUNIT, FORD);
 			break;
-
 		case BWD:
 			setMotorSyncTime (LeftMotor, RightMotor, SYNCH, FORWARDTIMEUNIT, -FORD);
 			break;
-
-		case LEFT_TURN:
-			setMotorSyncEncoder (LeftMotor, RightMotor, 100, TURNCLICKCOUNT, FORD);
-			break;
-
-		case RIGHT_TURN:
-			setMotorSyncEncoder (LeftMotor, RightMotor, -100, TURNCLICKCOUNT, FORD);
-			break;
-
-		case LEFT_ARC:
-			setMotorSyncTime (LeftMotor, RightMotor, ARCING, FORWARDTIMEUNIT, FORD);
-			break;
-
-		case RIGHT_ARC:
-			setMotorSyncTime (LeftMotor, RightMotor, -ARCING, FORWARDTIMEUNIT, FORD);
-			break;
-
 		case HARD_LEFT:
 			setMotorSyncTime (LeftMotor, RightMotor, SYNCH, FORWARDTIMEUNIT, -FORD);
 			sleep(800);
 			setMotorSyncEncoder (LeftMotor, RightMotor, 100, 90, FWD);
+			break;
+		case FORWARD_MOVE_SEARCH:
+			setMotorSync (LeftMotor, RightMotor, FORWARD_VALUE, FORD);
+			sleep(800); // TODO : CHANGE FOR THE CORRECT DISTANCE OR SLEEP TILL PROPER ENCODER VALUE
+			// Also probs possible to use pid drive which would allow for perfectly straight driving
 			break;
 		}
 		releaseCPU();
@@ -210,6 +199,8 @@ task searchForBallTask() {
 	int startEncoderValue;
 	int currentRotation;
 
+	int localWallMax = 0;
+
 	while (true) {
 		//TODO: Fix the sensor ports/ THere is a better command for finding the value anyways
 		topDistanceSensor = SensorValue[WallSensor];
@@ -227,7 +218,9 @@ task searchForBallTask() {
 
 				search_claw_command = CLAWOPEN;
 				search_motor_command = STOPMOVEMENT;
-				search_lever_command = CLAWTOGROUND;
+				search_lever_command = CLAWTOHOLD;
+
+				localWallMax = 0;
 
 				//updateXY
 
@@ -243,26 +236,22 @@ task searchForBallTask() {
 			//Case for reconizing a wall - recording local max, when goes down past threshold record corner
 				// Record relativeish direction of the wall
 
+			if (topDistanceSensor < SENSOR_DIST_TOP_MAX) {
+				if (localWallMax < topDistanceSensor) {
+					localWallMax = topDistanceSensor;
+				}
+			}
 
-			//Case for returning back to start
-				// Reset the wall count
 
 
 			// If wall in front and not straight on assume side, thus just going forward
 			if (direction < startEncoderValue) {
 				search_claw_command = CLAWOPEN;
-				search_motor_command = STOPMOVEMENT;
-				search_lever_command = CLAWTOGROUND;
+				search_motor_command = FORWARD_MOVE_SEARCH;
+				search_lever_command = CLAWTOHOLD;
+				sleep(1); //TODO: Cordinate with the sleep of the movement
+				passedThreshold = false;
 			}
-
-			if ((bottomDistanceSensor + deltaDistanceSensors) < (topDistanceSensor - tolleranceBall)) {
-				foundBall = true;
-				//TODO : make these vars turningMax turningDistance
-			}
-
-
-
-
 
 			// if wall is in front assume that we need to turn left or right
 
@@ -271,17 +260,34 @@ task searchForBallTask() {
 			// if corner can only turn one way
 
 
+
+
+
+
+			if ((bottomDistanceSensor + deltaDistanceSensors) < (topDistanceSensor - tolleranceBall)) {
+				foundBall = true;
+				search_claw_command = CLAWOPEN;
+				search_motor_command = FORWARD_MOVE_SEARCH;
+				search_lever_command = CLAWTOHOLD;
+				//TODO : make these vars turningMax turningDistance
+			}
 		}
-
-
-
-
-
-
-
 		releaseCPU();
 	}
 }
+
+task depositingBallTask () {
+
+}
+
+
+
+
+
+
+
+
+
 
 bool pickingUp = false;
 
@@ -341,15 +347,13 @@ task main() {
 	int motorCommands;
 	int clawCommands;
 	int leverControl;
-
-	//startTask(obstacle_Bumper_Hit);
-	//startTask(wall_follow);
+	// Need to redo the structure of these so that they make way the fuck more sense
 	startTask(moveCommand);
 	startTask(searchForBallTask);
 	startTask(grabbingBallTask);
 	startTask(leverCommands);
 	startTask(controlClaw);
-	//startTask(depositingBallTask);
+	startTask(depositingBallTask);
 
 	robot_lever_command = CLAWTOHOLD;
 	robot_claw_command = CLAWOPEN;
