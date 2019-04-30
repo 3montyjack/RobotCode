@@ -17,7 +17,9 @@ enum Movement {
 	RIGHT_ARC,
 	LEFT_TURN,
 	RIGHT_TURN,
-	HARD_LEFT,
+	NORMAL_SEARCH = 20,
+	HARD_LEFT_SEARCH,
+	HARD_RIGHT_SEARCH,
 	FORWARD_MOVE_SEARCH
 };
 
@@ -25,17 +27,19 @@ enum Movement {
 enum MotorValues {
 	FORD = 80,
 	SYNCH = 0,
+	HARD_LEFT_VALUE = 45,
 	ARCING = 10,
 	FORWARDTIMEUNIT = 600,
 	ARCRATIO = 70,
 	TURNCLICKCOUNT = 175,
+	HARD_TURN = 99,
 	STOPMOVEMENT = 0
 };
 
 enum TuringValues {
 	HARD_RIGHT_VALUE = 75,
 	FORWARD_VALUE = 0
-}
+};
 
 enum ClawStates {
 	CLAWCLOSE,
@@ -60,19 +64,30 @@ enum TimingMotors {
 
 enum EncoderValues {
 	CLAWHOLDE = 80,
-	CLAWDROPE = 110
+	CLAWDROPE = 110,
+	MAX_ROTATION = 1900
 };
 
 enum SensorTolerances {
 	tolleranceBall = 0,
 	tolleranceClawFloor = 15,
-	deltaDistanceSensors = 5
+	deltaDistanceSensors = 7,
+
 };
 
 enum SensorThreshold {
 	pickupThreshold = 30,
-	SENSOR_DIST_TOP_MAX = 170
+	SENSOR_DIST_TOP_MAX = 170,
+	WALL_THRESHOLD_2ND = 20
 };
+
+// TODO: Implement these
+
+bool enable_robot_lever;
+bool enable_robot_claw;
+bool enable_robot_drive;
+
+// END TODO
 
 int robot_lever_command;
 int robot_claw_command;
@@ -86,7 +101,6 @@ int grabbing_motor_command;
 int grabbing_claw_command;
 int grabbing_lever_command;
 
-
 int depositing_motor_command;
 int depositing_claw_command;
 int deposting_lever_command;
@@ -97,10 +111,20 @@ bool searching = false;
 bool foundBall = false;
 bool depositingBall = false;
 
+// Location Tracking for later
+
+int currentX = -1;
+int currentY = -1;
+
+int exploredX = -1;
+int exploredY = -1;
+
+
+
 //Debug global values
 
 int motorEncoder;
-
+int wallAmmount = 0;
 
 
 
@@ -118,10 +142,18 @@ task moveCommand () {
 		case BWD:
 			setMotorSyncTime (LeftMotor, RightMotor, SYNCH, FORWARDTIMEUNIT, -FORD);
 			break;
-		case HARD_LEFT:
-			setMotorSyncTime (LeftMotor, RightMotor, SYNCH, FORWARDTIMEUNIT, -FORD);
-			sleep(800);
+		case HARD_LEFT_SEARCH:
+			setMotorSyncTime (LeftMotor, RightMotor, SYNCH, FORWARDTIMEUNIT, FORD);
+			sleep(FORWARDTIMEUNIT);
 			setMotorSyncEncoder (LeftMotor, RightMotor, 100, 90, FWD);
+			break;
+		case HARD_RIGHT_SEARCH:
+			setMotorSyncTime (LeftMotor, RightMotor, SYNCH, FORWARDTIMEUNIT, FORD);
+			sleep(FORWARDTIMEUNIT);
+			setMotorSyncEncoder (LeftMotor, RightMotor, 100, 90, FWD);
+			break;
+		case NORMAL_SEARCH:
+			setMotorSync (LeftMotor, RightMotor, HARD_TURN, FORD);
 			break;
 		case FORWARD_MOVE_SEARCH:
 			setMotorSync (LeftMotor, RightMotor, FORWARD_VALUE, FORD);
@@ -156,32 +188,33 @@ task leverCommands() {
 	while(true) {
 
 		switch(robot_lever_command) {
-			case CLAWHOLD:
-				setMotor(ClawVertical, CLAWHOLDM);
-				break;
-			case CLAWTODROP:
-				setMotor(ClawVertical, CLAWUPM);
-				break;
-			case CLAWTOGROUND:
-				if (getMotorEncoder(ClawVertical) > tolleranceClawFloor) {
-					setMotor(ClawVertical, CLAWDOWNM);
-				}
-				break;
-			case CLAWTOHOLD:
-				while (getMotorEncoder(ClawVertical) > CLAWHOLDE + 5 || getMotorEncoder(ClawVertical) < CLAWHOLDE - 5){
-					motorEncoder = getMotorEncoder(ClawVertical);
-					if (getMotorEncoder(ClawVertical) > CLAWHOLDE) {
-						setMotor(ClawVertical, CLAWDOWNM);
-						} else if (getMotorEncoder(ClawVertical) < CLAWHOLDE) {
-						setMotor(ClawVertical, CLAWUPM);
-						} else {
-						setMotor(ClawVertical, CLAWHOLDM);
-					}
-				}
-				break;
+		case CLAWHOLD:
+			setMotor(ClawVertical, CLAWHOLDM);
+			break;
+		case CLAWTODROP:
+			setMotor(ClawVertical, CLAWUPM);
+			break;
+		case CLAWTOGROUND:
+			if (getMotorEncoder(ClawVertical) > tolleranceClawFloor) {
+				setMotor(ClawVertical, CLAWDOWNM);
 			}
-			releaseCPU();
+			break;
+		case CLAWTOHOLD:
+			while (getMotorEncoder(ClawVertical) > CLAWHOLDE + 5 || getMotorEncoder(ClawVertical) < CLAWHOLDE - 5){
+				motorEncoder = getMotorEncoder(ClawVertical);
+				if (getMotorEncoder(ClawVertical) > CLAWHOLDE) {
+					setMotor(ClawVertical, CLAWDOWNM);
+					} else if (getMotorEncoder(ClawVertical) < CLAWHOLDE) {
+					setMotor(ClawVertical, CLAWUPM);
+					} else {
+					setMotor(ClawVertical, CLAWHOLDM);
+				}
+			}
+			break;
+		}
+		releaseCPU();
 	}
+
 }
 
 
@@ -190,28 +223,38 @@ task leverCommands() {
 // This is the thread that controls the top downward facing reflection sensor. As a cockroach, the robot behavior is to stop
 // when appropriate darkeness is sensed.
 
+int topDistanceSensor;
+int bottomDistanceSensor;
+
+int topDistanceSensorFound;
+int bottomDistanceSensorFound;
+
 task searchForBallTask() {
-	int topDistanceSensor;
-	int bottomDistanceSensor;
+
 
 	bool passedThreshold;
 
 	int startEncoderValue;
 	int currentRotation;
 
-	int localWallMax = 0;
+	int localWallMax = -1;
+	bool walls[4] = {false, false, false, false};
+	bool turnLeft = false;
 
 	while (true) {
 		//TODO: Fix the sensor ports/ THere is a better command for finding the value anyways
 		topDistanceSensor = SensorValue[WallSensor];
 		bottomDistanceSensor = SensorValue[BallSensor];
+		currentRotation = getMotorEncoder(LeftMotor) - startEncoderValue;
 
 		if (searching) {
 
 			// Start spinning
-				// Record the xy that we are currently at
+			// Record the xy that we are currently at
 
 			if (!passedThreshold) {
+				// Initalizing the next search
+
 				passedThreshold = true;
 				startEncoderValue = getMotorEncoder(LeftMotor);
 				currentRotation = 0;
@@ -220,55 +263,103 @@ task searchForBallTask() {
 				search_motor_command = STOPMOVEMENT;
 				search_lever_command = CLAWTOHOLD;
 
-				localWallMax = 0;
+				walls[0] = false;
+				walls[1] = false;
+				walls[2] = false;
+				walls[3] = false;
+				localWallMax = -1;
 
 				//updateXY
 
-			} else {
-				// Math on degrees is find the center of rotation and such
-					// Easy way record the encoder value for 360 degreee turn mutaple times, and get a ratio for how many degrees the motor turned and the degrees of the robot turn
-				// curretnRotation + delta(startEncoderValue) ++ or something, roll over after 360
+				} else {
 
 
+				// Move Forward state
+
+				search_claw_command = CLAWOPEN;
+				search_motor_command = NORMAL_SEARCH;
+				search_lever_command = CLAWTOHOLD;
+
+				// If wall in front and not straight on assume side, thus just going forward
+				if (currentRotation > (startEncoderValue + MAX_ROTATION)) {
+
+					search_claw_command = CLAWOPEN;
+					search_motor_command = FORWARD_MOVE_SEARCH;
+					search_lever_command = CLAWTOHOLD;
+
+
+					if (walls[0]) {
+						//Turn left or right based on local var
+						// Wait some seconds
+						search_claw_command = CLAWOPEN;
+						if (turnLeft) {
+							search_motor_command = HARD_LEFT_SEARCH;
+							} else {
+							search_motor_command = HARD_RIGHT_SEARCH;
+						}
+						search_lever_command = CLAWTOHOLD;
+
+
+					}
+
+					if (walls[0] && walls[1]) {
+						// Turn left uninterupted
+						// Wait some seconds
+						search_claw_command = CLAWOPEN;
+						search_motor_command = HARD_LEFT_SEARCH;
+						search_lever_command = CLAWTOHOLD;
+
+
+
+
+					}
+
+					if (walls[0] && walls[3]) {
+						// Turn right
+						// Wait some seconds
+						search_claw_command = CLAWOPEN;
+						search_motor_command = HARD_RIGHT_SEARCH;
+						search_lever_command = CLAWTOHOLD;
+
+					}
+
+				}
+
+
+				passedThreshold = false;
 			}
+			// Cases for turning based on the the wall positions
+
+
 
 
 			//Case for reconizing a wall - recording local max, when goes down past threshold record corner
-				// Record relativeish direction of the wall
+			// Record relativeish direction of the wall
 
 			if (topDistanceSensor < SENSOR_DIST_TOP_MAX) {
 				if (localWallMax < topDistanceSensor) {
+					//TODO : This math is wrong, something something shifted by 45 deg
+					walls[(int) ((currentRotation + (MAX_ROTATION/8))/(MAX_ROTATION*4))%MAX_ROTATION] = true;
 					localWallMax = topDistanceSensor;
+					wallAmmount++;
 				}
 			}
 
 
 
-			// If wall in front and not straight on assume side, thus just going forward
-			if (direction < startEncoderValue) {
-				search_claw_command = CLAWOPEN;
-				search_motor_command = FORWARD_MOVE_SEARCH;
-				search_lever_command = CLAWTOHOLD;
-				sleep(1); //TODO: Cordinate with the sleep of the movement
-				passedThreshold = false;
-			}
-
-			// if wall is in front assume that we need to turn left or right
-
-
-
-			// if corner can only turn one way
 
 
 
 
 
-
-			if ((bottomDistanceSensor + deltaDistanceSensors) < (topDistanceSensor - tolleranceBall)) {
+			if ((bottomDistanceSensor + deltaDistanceSensors) < (topDistanceSensor - tolleranceBall) && (abs(bottomDistanceSensor - topDistanceSensor) > 15)) {
 				foundBall = true;
+				bottomDistanceSensorFound = bottomDistanceSensor;
+				topDistanceSensorFound = topDistanceSensor;
 				search_claw_command = CLAWOPEN;
 				search_motor_command = FORWARD_MOVE_SEARCH;
 				search_lever_command = CLAWTOHOLD;
+
 				//TODO : make these vars turningMax turningDistance
 			}
 		}
@@ -278,16 +369,25 @@ task searchForBallTask() {
 
 task depositingBallTask () {
 
+	// Assuming that we can get the max length of the field, we can then get the closest corner, else, return to starting point
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
-
-
-
-
-
-
-
-
-
 
 bool pickingUp = false;
 
@@ -298,8 +398,8 @@ task grabbingBallTask() {
 	while (true) {
 		if (pickingUp) {
 			//TODO: Fix the sensor ports/ THere is a better command for finding the value anyways
-			topDistanceSensor = SensorValue[WallSensor];
-			bottomDistanceSensor = SensorValue[BallSensor];
+			topDistanceSensor = getUSDistance(WallSensor);
+			bottomDistanceSensor = getUSDistance(BallSensor);
 
 			grabbing_motor_command = FWD;
 
@@ -354,6 +454,7 @@ task main() {
 	startTask(leverCommands);
 	startTask(controlClaw);
 	startTask(depositingBallTask);
+	searching = true;
 
 	robot_lever_command = CLAWTOHOLD;
 	robot_claw_command = CLAWOPEN;
@@ -381,7 +482,7 @@ task main() {
 
 
 
-		robot_move_command = motorCommands;
+		robot_drive_command = motorCommands;
 		robot_claw_command = clawCommands;
 		robot_lever_command = leverControl;
 		releaseCPU();
