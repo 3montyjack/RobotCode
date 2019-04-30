@@ -19,7 +19,7 @@ enum Movement {
 	HARD_RIGHT,
 	HARD_LEFT,
 	RIGHT_TURN,
-	NORMAL_SEARCH = 20,
+	NORMAL_SEARCH,
 	HARD_LEFT_SEARCH,
 	HARD_RIGHT_SEARCH,
 	FORWARD_MOVE_SEARCH
@@ -123,8 +123,8 @@ bool depositingBall = false;
 
 // Location Tracking for later
 
-int currentX = -1;
-int currentY = -1;
+int currentX = 0;
+int currentY = 0;
 
 int exploredX = -1;
 int exploredY = -1;
@@ -324,8 +324,10 @@ task searchForBallTask() {
 						search_claw_command = CLAWOPEN;
 						if (turnLeft) {
 							search_motor_command = HARD_LEFT_SEARCH;
+							direction = changeDirection(direction, true);
 						} else {
 							search_motor_command = HARD_RIGHT_SEARCH;
+							direction = changeDirection(direction, false);
 						}
 						search_lever_command = CLAWTOHOLD;
 
@@ -337,6 +339,7 @@ task searchForBallTask() {
 						// Wait some seconds
 						search_claw_command = CLAWOPEN;
 						search_motor_command = HARD_LEFT_SEARCH;
+						direction = changeDirection(direction, true);
 						search_lever_command = CLAWTOHOLD;
 
 
@@ -349,10 +352,12 @@ task searchForBallTask() {
 						// Wait some seconds
 						search_claw_command = CLAWOPEN;
 						search_motor_command = HARD_RIGHT_SEARCH;
+						direction = changeDirection(direction, false);
 						search_lever_command = CLAWTOHOLD;
 
 					}
-
+					x = changeX(direction);
+					y = changeY(direction);
 				}
 			}
 			// Cases for turning based on the the wall positions
@@ -379,6 +384,33 @@ task searchForBallTask() {
 			}
 		}
 		releaseCPU();
+	}
+}
+
+int changeDirection(int direction, bool left) {
+	if (direction == 3 && !left) {
+		return 0;
+	} else if (direction == 0 && left) {
+		return 3;
+	} else if (left) {
+		return direction -1;
+	}
+	return direction +1;
+}
+
+void changeX(int direction) {
+	if (direction == 2) {
+		currentX--;
+	} else if (direction == 0) {
+		currentX++;
+	}
+}
+
+void changeY(int direction) {
+	if (direction == 3) {
+		currentY--;
+	} else if (direction == 1) {
+		currentY++;
 	}
 }
 
