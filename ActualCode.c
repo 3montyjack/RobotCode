@@ -25,6 +25,13 @@ enum Movement {
 	FORWARD_MOVE_SEARCH
 };
 
+enum Direction {
+	NORTH,
+	EAST,
+	SOUTH,
+	WEST
+};
+
 /* Mnemonics for motor speed control */
 enum MotorValues {
 	FORD = 80,
@@ -268,7 +275,7 @@ task searchForBallTask() {
 		//TODO: Fix the sensor ports/ THere is a better command for finding the value anyways
 		topDistanceSensor = SensorValue[WallSensor];
 		bottomDistanceSensor = SensorValue[BallSensor];
-		currentRotation = getMotorEncoder(LeftMotor) - startEncoderValue;
+		currentRotation = getMotorEncoder(RightMotor) - startEncoderValue;
 
 		if (searching) {
 
@@ -279,7 +286,7 @@ task searchForBallTask() {
 				// Initalizing the next search
 
 				passedThreshold = true;
-				startEncoderValue = getMotorEncoder(LeftMotor);
+				startEncoderValue = getMotorEncoder(RightMotor);
 				currentRotation = 0;
 
 				search_claw_command = CLAWOPEN;
