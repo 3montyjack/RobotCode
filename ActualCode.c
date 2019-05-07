@@ -117,6 +117,8 @@ bool searching = false;
 bool foundBall = false;
 bool depositingBall = false;
 
+task searchForBallTask;
+
 // Location Tracking for later
 
 //int currentX = 0;
@@ -366,7 +368,7 @@ task searchForBallTask() {
 				walls[3] = false;
 				localWallMax = -1;
 				startEncoderValue = getMotorEncoder(LeftMotor);
-				currentRotation = 0;
+				currentRotation = getMotorEncoder(LeftMotor);
 
 			} else {
 
@@ -432,7 +434,7 @@ task depositingBallTask () {
 
 		topDistanceSensor = SensorValue[WallSensor];
 		bottomDistanceSensor = SensorValue[BallSensor];
-		colorSensorAHHHH = SensorValue[ColorSens2];
+		colorSensorAHHHH = getColorReflected(ColorSens2);
 
 		if (findWall) {
 			if (topDistanceSensor < SENSOR_DIST_DEPOSIT) {
